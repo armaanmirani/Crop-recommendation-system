@@ -81,6 +81,28 @@ Download the resulting report as JSON.
 
 ## Agmarknet / data.gov.in market prices
 
+### Tamil Nadu: all 22 crops
+
+The state field defaults to Tamil Nadu. The market panel includes a card for every
+model crop, showing a usable reported quote, stale report, or unavailable price.
+**Check all 22 crops · Tamil Nadu** fetches a page of up to 500 state reports in
+one API call, then matches them to the supported crop commodities. Load additional
+pages to expand coverage. District, mandi, and date filters still apply.
+
+If the API is unreachable, select an official CSV export, confirm INR/quintal units,
+and click **Import all 22 crops · Tamil Nadu**. This processes all supported crops
+from that file at once and excludes other states. Click **Use this report** on a
+crop card to fill its price while preserving source, date, sale commodity, and mandi.
+Add your expected yield and cost separately to calculate profit.
+
+The card quote is an actual individual report from the loaded data, not a statewide
+average. No actual Tamil Nadu reports could be downloaded in this environment;
+there are no fabricated default prices. All 22 crop slots are supported, but full
+price coverage requires actual source reports. Missing crops remain unavailable;
+stale quotes and unverified coconut count-to-weight prices cannot be filled.
+
+### Source and configuration
+
 Agmarknet supplies the daily mandi-price reports also published by India's Open
 Government Data platform. They are the same underlying source, not two independent
 market feeds. The server uses resource `9ef84268-d588-465a-a308-a864a43d0070`:

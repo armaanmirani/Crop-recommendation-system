@@ -241,7 +241,8 @@ def results(rows, selected, source, total=None, offset=0, csv_export=False):
 
 
 def fetch_prices(values):
-    selected = filters(values)
+    bulk = values.get("crop") == "all"
+    selected = filters({**dict(values), "crop": "rice", "commodity": COMMODITIES["rice"][0], "state": "Tamil Nadu"}) if bulk else filters(values)
     try:
         offset = int(values.get("offset", 0))
     except (ValueError, TypeError):
@@ -251,9 +252,9 @@ def fetch_prices(values):
     key = os.environ.get("DATA_GOV_API_KEY", "").strip()
     if not key:
         raise MarketError("Live lookup needs a data.gov.in API key configured on the server. You can still import an official CSV export or enter a manual estimate.", 503, "API_KEY_MISSING")
-    params = {"api-key": key, "format": "json", "limit": "100", "offset": str(offset)}
+    params = {"api-key": key, "format": "json", "limit": "500" if bulk else "100", "offset": str(offset)}
     for name in ("state", "district", "market", "commodity"):
-        if selected[name]:
+        if selected[name] and not (bulk and name == "commodity"):
             params[f"filters[{name}]"] = selected[name]
     if selected["date"]:
         params["filters[arrival_date]"] = date.fromisoformat(selected["date"]).strftime("%d/%m/%Y")
@@ -282,11 +283,45 @@ def fetch_prices(values):
             raise ValueError("Negative total")
     except (TypeError, ValueError):
         raise MarketError("The market service returned an invalid record count.") from None
+    if bulk:
+        return tamil_nadu_results(payload["records"], selected, "Agmarknet via data.gov.in API", total, offset)
     return results(payload["records"], selected, "Agmarknet via data.gov.in API", total, offset)
 
 
+def tamil_nadu_results(rows, selected, source, total=None, offset=0, csv_export=False):
+    """Expose all crop slots; preserve individual mandi reports, never invent state averages."""
+    groups, records, warnings = [], [], []
+    for crop, commodities in sorted(COMMODITIES.items()):
+        found = []
+        for commodity in commodities:
+            parsed = results(rows, {**selected, "crop": crop, "commodity": commodity, "state": "Tamil Nadu"}, source, csv_export=csv_export)
+            found.extend(parsed["records"])
+            warnings.extend(warning for warning in parsed["warnings"] if not warning.startswith("No matching usable"))
+        found.sort(key=lambda record: (record["report_date"], record["market"]), reverse=True)
+        fresh = [record for record in found if not record["stale"]]
+        # A real report is selected as an example quote, not a statewide average.
+        leading = fresh[0] if fresh else (found[0] if found else None)
+        status = "available" if fresh else ("stale" if found else "unavailable")
+        if crop == "coconut":
+            status = "unit_verification_required"
+        groups.append({"crop": crop, "status": status, "quote": leading, "reports": found,
+                       "reason": "Confirm count-versus-weight units before using coconut prices." if crop == "coconut" else
+                       ("No matching Tamil Nadu report in the loaded data." if not found else
+                        ("Only reports older than 7 days were found." if not fresh else "Latest usable report in the loaded data; not a state average."))})
+        records.extend(found)
+    partial = total is not None and offset + len(rows) < total
+    if partial:
+        warnings.append("This is a partial page of Tamil Nadu reports. Load more pages before assessing crop coverage; unloaded reports may contain missing crops.")
+    warnings.append("Prices belong to the displayed mandi, commodity, variety, and date. They are not statewide averages or harvest-price forecasts.")
+    return {"state": "Tamil Nadu", "crops": groups, "records": records, "source": source,
+            "available_count": sum(group["status"] == "available" for group in groups), "crop_count": len(groups),
+            "warnings": list(dict.fromkeys(warnings)), "partial": partial, "total": total, "offset": offset,
+            "next_offset": offset + len(rows) if partial and rows else None}
+
+
 def import_csv(raw, values):
-    selected = filters(values)
+    bulk = values.get("crop") == "all"
+    selected = filters({**dict(values), "crop": "rice", "commodity": COMMODITIES["rice"][0], "state": "Tamil Nadu"}) if bulk else filters(values)
     portal = values.get("portal", "agmarknet")
     if portal not in ("agmarknet", "data_gov"):
         raise ValueError("Choose Agmarknet or data.gov.in as the export source.")
@@ -304,4 +339,6 @@ def import_csv(raw, values):
     if len(rows) > 5000:
         raise ValueError("CSV exceeds 5000 rows. Export a narrower location or date range.")
     source = "Agmarknet portal CSV (user-supplied)" if portal == "agmarknet" else "Agmarknet via data.gov.in CSV (user-supplied)"
+    if bulk:
+        return tamil_nadu_results(rows, selected, source, csv_export=True)
     return results(rows, selected, source, csv_export=True)

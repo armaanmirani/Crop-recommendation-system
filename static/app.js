@@ -7,6 +7,8 @@ let metadataReady = false;
 let commodityMap = {};
 let priceFilters = null;
 let nextOffset = null;
+let bulkLookup = false;
+const tamilNaduReports = {};
 const selectedQuotes = {};
 const money = value => new Intl.NumberFormat('en-IN', {style:'currency', currency:'INR', maximumFractionDigits:2}).format(value);
 const percent = value => `${(value * 100).toFixed(1)}%`;
@@ -31,6 +33,7 @@ async function getMetadata() {
       });
       tbody.append(row);
     });
+    renderTamilNadu();
     const grid = document.querySelector('#model-metrics'); grid.replaceChildren();
     Object.entries(metadata.metrics).forEach(([name, metrics]) => {
       const card = node('div', 'metric-card');
@@ -53,6 +56,8 @@ document.querySelector('#demo').addEventListener('click', () => {
   Object.keys(selectedQuotes).forEach(crop => delete selectedQuotes[crop]); renderSelectedQuotes();
   document.querySelector('#price-results').replaceChildren(); document.querySelector('#price-error').hidden = true;
   document.querySelector('#next-prices').hidden = true; nextOffset = null;
+  Object.keys(tamilNaduReports).forEach(crop => delete tamilNaduReports[crop]); renderTamilNadu();
+  document.querySelector('#tn-summary').textContent = 'No reports loaded yet. Fetch official reports or import a Tamil Nadu CSV to see available prices. Missing prices are never filled with sample data.';
 });
 
 form.addEventListener('submit', async event => {
@@ -177,12 +182,13 @@ function renderPriceReports(data) {
   nextOffset = data.next_offset; document.querySelector('#next-prices').hidden = nextOffset === null;
 }
 
-async function requestPrices(mode, offset=0) {
+async function requestPrices(mode, offset=0, bulk=false) {
   const priceError = document.querySelector('#price-error'); priceError.hidden = true;
-  const buttons = ['#fetch-prices','#import-prices','#next-prices'].map(id => document.querySelector(id));
+  const buttons = ['#fetch-prices','#import-prices','#next-prices','#fetch-tn-prices','#import-tn-prices'].map(id => document.querySelector(id));
   buttons.forEach(element => element.disabled = true);
   try {
     const filters = offset ? priceFilters : lookupFilters();
+    if(bulk) {filters.crop = 'all'; filters.state = 'Tamil Nadu'; delete filters.commodity; document.querySelector('#price-state').value = 'Tamil Nadu';}
     if(!filters.state) throw new Error('Enter your state to find relevant mandi prices.');
     let response;
     if(mode === 'csv') {
@@ -199,15 +205,50 @@ async function requestPrices(mode, offset=0) {
     }
     const data = await response.json();
     if(!response.ok) throw new Error(`${data.error || 'Unable to load price reports.'}${data.error_code ? ` [${data.error_code}]` : ''}`);
-    priceFilters = filters; renderPriceReports(data);
+    priceFilters = filters; bulkLookup = bulk;
+    if(bulk) {
+      if(offset === 0) Object.keys(tamilNaduReports).forEach(crop => delete tamilNaduReports[crop]);
+      data.crops.forEach(group => {
+        const previous = tamilNaduReports[group.crop] || [];
+        const unique = new Map();
+        [...previous,...group.reports].forEach(quote => unique.set(JSON.stringify([quote.commodity,quote.market,quote.district,quote.variety,quote.grade,quote.report_date,quote.modal_price]),quote));
+        tamilNaduReports[group.crop] = [...unique.values()];
+      });
+      renderTamilNadu();
+      const available = Object.values(tamilNaduReports).filter(reports => reports.some(quote => !quote.stale)).length;
+      document.querySelector('#tn-summary').textContent = `${available} of 22 crops have usable Tamil Nadu reports in the loaded data. ${data.partial ? 'More pages remain; coverage is incomplete.' : 'Unavailable crops have no usable report in this source selection.'} Prices are individual mandi quotes, not statewide averages.`;
+    }
+    renderPriceReports(data);
   } catch(failure) {
     priceError.textContent = failure.message; priceError.hidden = false;
     document.querySelector('#price-results').replaceChildren(); document.querySelector('#next-prices').hidden = true;
+    if(bulk) document.querySelector('#tn-summary').textContent = 'Tamil Nadu update failed. Previously loaded reports, if any, remain visible; unavailable prices have not been filled.';
   } finally {buttons.forEach(element => element.disabled = false);}
 }
 
 document.querySelector('#price-crop').addEventListener('change',updateCommodity);
 document.querySelector('#fetch-prices').addEventListener('click',() => requestPrices('api'));
 document.querySelector('#import-prices').addEventListener('click',() => requestPrices('csv'));
-document.querySelector('#next-prices').addEventListener('click',() => requestPrices('api',nextOffset));
+document.querySelector('#next-prices').addEventListener('click',() => requestPrices('api',nextOffset,bulkLookup));
+document.querySelector('#fetch-tn-prices').addEventListener('click',() => requestPrices('api',0,true));
+document.querySelector('#import-tn-prices').addEventListener('click',() => requestPrices('csv',0,true));
+
+function renderTamilNadu() {
+  const holder = document.querySelector('#tn-price-list'); holder.replaceChildren();
+  document.querySelectorAll('#market-rows tr').forEach(row => {
+    const crop = row.dataset.crop;
+    const reports = [...(tamilNaduReports[crop] || [])].sort((a,b) => b.report_date.localeCompare(a.report_date));
+    const quote = reports.find(report => !report.stale) || reports[0];
+    const card = node('article','tn-price-card'); card.append(node('h4','',crop));
+    if(quote) {
+      card.append(node('strong','',`${money(quote.price_per_kg)}/kg`),node('p','',`${quote.market}, ${quote.district} · ${quote.commodity} / ${quote.variety} · ${quote.report_date}`));
+      const use = node('button','secondary-button',quote.stale ? 'Stale report · cannot use' : 'Use this report'); use.type = 'button'; use.disabled = quote.stale;
+      use.addEventListener('click',() => {row.querySelector('[data-field="price_per_kg"]').value = String(quote.price_per_kg); selectedQuotes[crop] = quote; renderSelectedQuotes(); use.textContent = 'Price filled · enter yield and cost';});
+      card.append(use);
+    } else {
+      card.append(node('span','unavailable-price','Price unavailable'),node('p','',crop === 'coconut' ? 'Count-versus-weight unit needs verification.' : 'No usable Tamil Nadu report loaded.'));
+    }
+    holder.append(card);
+  });
+}
 getMetadata(); getMarketStatus();

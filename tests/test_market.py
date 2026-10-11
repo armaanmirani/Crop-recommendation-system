@@ -213,3 +213,48 @@ def test_safe_network_diagnostics(client,monkeypatch,caplog,reason,code):
     assert response.status_code==503 and response.json['error_code']==code
     assert code in caplog.text
     assert 'test-api-key' not in caplog.text + response.get_data(as_text=True)
+
+
+def test_tamil_nadu_bulk_csv_covers_all_slots_without_fabrication(client):
+    old=(market.today()-timedelta(days=8)).strftime('%d/%m/%Y')
+    response=upload(client,[record(state='Tamil Nadu',district='Vellore',market='Vellore'),
+        record(state='Tamilnadu',commodity='Banana'),record(state='Tamil Nadu',commodity='Apple',arrival_date=old),
+        record(state='Tamil Nadu',commodity='Coconut'),record(commodity='Maize')],crop='all')
+    assert response.status_code==200
+    data=response.json
+    assert data['state']=='Tamil Nadu' and data['crop_count']==22 and data['available_count']==2
+    crops={group['crop']:group for group in data['crops']}
+    assert crops['rice']['quote']['price_per_kg']==24.5
+    assert crops['banana']['status']=='available'
+    assert crops['apple']['status']=='stale'
+    assert crops['maize']['status']=='unavailable' and crops['maize']['quote'] is None
+    assert crops['coconut']['status']=='unit_verification_required' and crops['coconut']['quote'] is None
+    assert all(market.normalized(quote['state'])=='tamilnadu' for quote in data['records'])
+
+
+def test_tamil_nadu_bulk_uses_one_state_request_and_reports_partial_coverage(client,monkeypatch):
+    monkeypatch.setenv('DATA_GOV_API_KEY','test-api-key')
+    captured=[]
+    class Opener:
+        def open(self,req,timeout):
+            captured.append(req.full_url)
+            return io.BytesIO(json.dumps({'records':[record(state='Tamil Nadu')],'total':600}).encode())
+    monkeypatch.setattr(market,'build_opener',lambda *args: Opener())
+    response=client.get('/api/market-prices',query_string={'crop':'all','state':'Punjab'})
+    assert response.status_code==200
+    query=parse_qs(urlparse(captured[0]).query)
+    assert len(captured)==1
+    assert query['filters[state]']==['Tamil Nadu'] and query['limit']==['500']
+    assert 'filters[commodity]' not in query
+    assert response.json['partial'] and response.json['next_offset']==1
+    assert response.json['crop_count']==22 and response.json['available_count']==1
+
+
+def test_tamil_nadu_quote_can_be_used_for_profit(client):
+    data=upload(client,[record(state='Tamil Nadu')],crop='all').json
+    quote=next(group['quote'] for group in data['crops'] if group['crop']=='rice')
+    response=client.post('/api/recommend',json={**SOIL,'market':{'rice':{
+        'quote_id':quote['quote_id'],'yield_kg_per_hectare':4000,'cost_per_hectare':50000}}})
+    assert response.status_code==200
+    assert response.json['recommendations'][0]['market']['estimated_profit']==48000
+    assert response.json['recommendations'][0]['market']['price_source']['state']=='Tamil Nadu'

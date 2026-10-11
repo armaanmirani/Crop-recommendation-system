@@ -40,22 +40,28 @@
           <div class="fields two">
             <label>Crop<select id="price-crop" aria-label="Market price crop"></select></label>
             <label>Sale commodity<select id="price-commodity" aria-label="Sale commodity"></select></label>
-            <label>State<input id="price-state" type="text" maxlength="100" placeholder="e.g. Maharashtra" autocomplete="address-level1"></label>
-            <label>District <span>Optional</span><input id="price-district" type="text" maxlength="100" placeholder="e.g. Pune"></label>
+            <label>State<input id="price-state" type="text" maxlength="100" value="Tamil Nadu" placeholder="Tamil Nadu" autocomplete="address-level1"></label>
+            <label>District <span>Optional</span><input id="price-district" type="text" maxlength="100" placeholder="e.g. Vellore"></label>
             <label>Mandi / market <span>Optional · exact name</span><input id="price-market" type="text" maxlength="100" placeholder="e.g. Pune"></label>
             <label>Report date <span>Optional</span><input id="price-date" type="date"></label>
           </div>
           <button id="fetch-prices" class="secondary-button" type="button">Look up official prices</button>
+          <button id="fetch-tn-prices" class="secondary-button" type="button">Check all 22 crops · Tamil Nadu</button>
           <details class="csv-import"><summary>Import a portal CSV export instead</summary>
             <p>Download a CSV from <a href="https://agmarknet.gov.in/" target="_blank" rel="noopener noreferrer">Agmarknet</a> or <a href="https://www.data.gov.in/resource/current-daily-price-various-commodities-various-markets-mandi" target="_blank" rel="noopener noreferrer">data.gov.in</a>. The same crop and location filters above apply. Uploaded files are user-supplied; their authenticity is not verified.</p>
             <label>Export source<select id="csv-source"><option value="agmarknet">Agmarknet portal</option><option value="data_gov">data.gov.in</option></select></label>
             <label class="file-label">CSV file <span>UTF-8 · up to 2 MB</span><input id="price-csv" type="file" accept=".csv,text/csv"></label>
             <label class="check-label"><input id="confirm-quintal" type="checkbox"> I checked that this export reports prices in ₹ per quintal (100 kg).</label>
             <button id="import-prices" class="secondary-button" type="button">Import prices</button>
+            <button id="import-tn-prices" class="secondary-button" type="button">Import all 22 crops · Tamil Nadu</button>
           </details>
           <p id="price-error" class="error" role="alert" hidden></p>
           <div id="price-results" class="price-results" aria-live="polite"></div>
           <button id="next-prices" class="text-button" type="button" hidden>Load next page of reports</button>
+          <section class="tn-price-section" aria-label="Tamil Nadu prices for all 22 crops"><h3>Tamil Nadu · all 22 crops</h3>
+            <p id="tn-summary" class="input-note" role="status">No reports loaded yet. Fetch official reports or import a Tamil Nadu CSV to see available prices. Missing prices are never filled with sample data.</p>
+            <div id="tn-price-list" class="tn-price-list"></div>
+          </section>
           <p class="input-note">Modal is the reported representative price, not a guaranteed sale price. Reports older than 7 days are shown but cannot fill prices automatically. Rice defaults to paddy; coconut prices need a verified weight unit.</p>
         </div>
         <p>Use reported prices or enter your own ₹/kg estimate. Add expected yield (kg/ha) and costs (₹/ha) to calculate profit. A price-only row is ignored in profit calculations; complete all suitable candidates to apply market ranking. Yields and costs remain your assumptions.</p>
