@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#214f3f"><meta name="description" content="Crop recommendations grounded in your soil, climate, and farm economics.">
+  <title>Terra · Grow with the ground</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="/" aria-label="Terra home"><span class="brand-icon">❧</span> terra<span class="brand-dot">.</span></a><span class="top-label">SUSTAINABLE AGRICULTURE</span><a class="about-link" href="#model-details">About the models <span class="arrow-icon" aria-hidden="true"></span></a></header>
+<main>
+  <section class="hero">
+    <div class="hero-copy"><div class="eyebrow"><span class="status-dot"></span> A LITTLE SCIENCE. A BETTER HARVEST.</div><h1>The right crop.<br>A better <em>tomorrow.</em></h1><p>Understand your soil. Explore what can thrive. <br>Make a more informed decision for your next season.</p><div class="hero-tags"><span>22 crops</span><span>2 trained models</span><span>One healthier planet</span></div></div>
+    <div class="landscape" role="img" aria-label="Illustration of green agricultural fields beneath the sun"><svg viewBox="0 0 480 300" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="field"><rect width="480" height="300" rx="24"/></clipPath></defs><g clip-path="url(#field)"><rect width="480" height="300" fill="#e4eadb"/><circle cx="356" cy="66" r="33" fill="#e4bb65"/><path d="M0 141Q120 44 260 142T520 111V300H0Z" fill="#8da584"/><path d="M0 173Q210 81 480 206V300H0Z" fill="#536f4e"/><path d="M0 217Q225 99 480 241V300H0Z" fill="#a3b27e"/><path d="M0 268Q220 115 480 273V300H0Z" fill="#284e3b"/><g fill="none" stroke="#d9dbb0" stroke-width="3" opacity=".6"><path d="M61 300Q139 202 275 196"/><path d="M125 300Q176 224 331 216"/><path d="M202 300Q240 251 390 244"/><path d="M290 300Q326 273 453 275"/></g><path d="M66 152V87" stroke="#284e3b" stroke-width="5"/><path d="M66 128Q21 128 29 92Q65 93 66 128M66 109Q106 109 102 76Q67 79 66 109" fill="#284e3b"/></g></svg><div class="landscape-caption">ROOTED IN DATA. GROWING WITH CARE.</div></div>
+  </section>
+  <div class="workspace-heading"><div><div class="eyebrow muted">YOUR NEXT SEASON STARTS HERE</div><h2>Let’s get to know your field.</h2></div><button id="demo" class="text-button" type="button">↺ Load rice demo</button></div>
+  <div class="workspace">
+    <form id="field-form" class="panel input-panel">
+      <div class="section-title"><span class="section-number">01</span><div><h3>Soil & climate</h3><p>Use recent soil tests and representative growing conditions.</p></div></div>
+      <div class="fields">
+        <label>Nitrogen <span>N · dataset units</span><input name="N" type="number" min="0" max="300" step="any" value="90" required></label>
+        <label>Phosphorus <span>P · dataset units</span><input name="P" type="number" min="0" max="300" step="any" value="42" required></label>
+        <label>Potassium <span>K · dataset units</span><input name="K" type="number" min="0" max="300" step="any" value="43" required></label>
+        <label>Soil pH <span>0–14</span><input name="ph" type="number" min="0" max="14" step="any" value="6.5" required></label>
+        <label>Temperature <span>°C</span><input name="temperature" type="number" min="-10" max="60" step="any" value="20.9" required></label>
+        <label>Humidity <span>%</span><input name="humidity" type="number" min="0" max="100" step="any" value="82" required></label>
+        <label>Rainfall <span>mm · dataset period</span><input name="rainfall" type="number" min="0" max="5000" step="any" value="203" required></label>
+        <label>Water availability <span>For irrigation planning</span><select name="water_availability"><option value="low">Limited</option><option value="medium" selected>Moderate</option><option value="high">Abundant</option></select></label>
+      </div>
+      <p class="input-note">Match nutrient units and rainfall period to the dataset. Scores may be unreliable outside its growing conditions.</p>
+      <div class="section-title divider"><span class="section-number">02</span><div><h3>Your planning preferences</h3><p>Compare suitability with your farm’s economics.</p></div></div>
+      <div class="fields two"><label>Farm area <span>hectares</span><input name="area_hectares" type="number" min="0.01" max="100000" step="any" value="1" required></label><label>Prediction model <span>Compare both in results</span><select name="model" id="model"><option value="random_forest">Random Forest</option><option value="xgboost">XGBoost</option></select></label></div>
+      <label class="range-label">Market priority <output id="priority-value">0%</output><input name="market_weight" id="priority" type="range" min="0" max="1" step="0.05" value="0"><span class="range-ends"><span>Soil suitability first</span><span>Profit preference</span></span></label>
+      <details class="market-details"><summary>Market prices & farm estimates <span>OPTIONAL</span></summary>
+        <div class="market-lookup">
+          <h3>Reported mandi prices</h3><p>Agmarknet reports published on data.gov.in. Choose the crop and selling location, then select a report to fill its modal price. Check the variety and sale form against your expected yield.</p>
+          <p id="market-status" class="input-note" role="status">Checking price lookup availability…</p>
+          <div class="fields two">
+            <label>Crop<select id="price-crop" aria-label="Market price crop"></select></label>
+            <label>Sale commodity<select id="price-commodity" aria-label="Sale commodity"></select></label>
+            <label>State<input id="price-state" type="text" maxlength="100" placeholder="e.g. Maharashtra" autocomplete="address-level1"></label>
+            <label>District <span>Optional</span><input id="price-district" type="text" maxlength="100" placeholder="e.g. Pune"></label>
+            <label>Mandi / market <span>Optional · exact name</span><input id="price-market" type="text" maxlength="100" placeholder="e.g. Pune"></label>
+            <label>Report date <span>Optional</span><input id="price-date" type="date"></label>
+          </div>
+          <button id="fetch-prices" class="secondary-button" type="button">Look up official prices</button>
+          <details class="csv-import"><summary>Import a portal CSV export instead</summary>
+            <p>Download a CSV from <a href="https://agmarknet.gov.in/" target="_blank" rel="noopener noreferrer">Agmarknet</a> or <a href="https://www.data.gov.in/resource/current-daily-price-various-commodities-various-markets-mandi" target="_blank" rel="noopener noreferrer">data.gov.in</a>. The same crop and location filters above apply. Uploaded files are user-supplied; their authenticity is not verified.</p>
+            <label>Export source<select id="csv-source"><option value="agmarknet">Agmarknet portal</option><option value="data_gov">data.gov.in</option></select></label>
+            <label class="file-label">CSV file <span>UTF-8 · up to 2 MB</span><input id="price-csv" type="file" accept=".csv,text/csv"></label>
+            <label class="check-label"><input id="confirm-quintal" type="checkbox"> I checked that this export reports prices in ₹ per quintal (100 kg).</label>
+            <button id="import-prices" class="secondary-button" type="button">Import prices</button>
+          </details>
+          <p id="price-error" class="error" role="alert" hidden></p>
+          <div id="price-results" class="price-results" aria-live="polite"></div>
+          <button id="next-prices" class="text-button" type="button" hidden>Load next page of reports</button>
+          <p class="input-note">Modal is the reported representative price, not a guaranteed sale price. Reports older than 7 days are shown but cannot fill prices automatically. Rice defaults to paddy; coconut prices need a verified weight unit.</p>
+        </div>
+        <p>Use reported prices or enter your own ₹/kg estimate. Add expected yield (kg/ha) and costs (₹/ha) to calculate profit. A price-only row is ignored in profit calculations; complete all suitable candidates to apply market ranking. Yields and costs remain your assumptions.</p>
+        <div class="table-scroll"><table class="market-table"><thead><tr><th>Crop</th><th>₹/kg</th><th>kg/ha</th><th>Cost ₹/ha</th></tr></thead><tbody id="market-rows"></tbody></table></div>
+        <div id="selected-quotes" class="selected-quotes" aria-live="polite"></div>
+      </details>
+      <button type="submit" id="submit" class="primary-button">Find my crops <span class="arrow-icon" aria-hidden="true"></span></button>
+      <p id="form-error" class="error" role="alert" hidden></p>
+    </form>
+    <section class="result-column" aria-label="Crop recommendations">
+      <div id="empty-state" class="panel empty-state"><div class="seed-mark">❧</div><div class="eyebrow muted">GOOD THINGS START WITH GOOD SOIL</div><h2>Your field has potential.<br>Let’s find it.</h2><p>Enter your field conditions to discover suitable crops, compare the models, and plan for the season ahead.</p><div class="steps"><span>01 · Measure</span><span>02 · Explore</span><span>03 · Grow</span></div></div>
+      <div id="results" hidden aria-live="polite"><div class="panel results-panel"><div class="result-heading"><span class="eyebrow muted">YOUR CROP SHORTLIST</span><span id="result-model" class="badge"></span></div><div id="crop-cards"></div><div id="warnings"></div><p class="fine-print">Model scores describe relative support, not a guaranteed yield or chance of success. Confirm the crop, season, soil units, and local practices with an agronomist.</p><button id="download" type="button" class="text-button">↓ Download field report</button></div><div class="panel comparison-panel"><h3>Two models. One informed decision.</h3><div id="comparison" class="comparison-grid"></div><p>Both models see the same seven soil and climate inputs. Market estimates are applied separately.</p></div></div>
+      <div class="sustainability-note"><span>♧</span><div><h3>Think beyond this harvest.</h3><p>Consider crop rotation, water availability, and local biodiversity. Our water categories are illustrative planning hints, not measured irrigation requirements.</p></div></div>
+    </section>
+  </div>
+  <section id="model-details" class="model-section"><div><div class="eyebrow muted">TRANSPARENT BY DESIGN</div><h2>Real models. Clear limits.</h2><p>Trained on the Kaggle Crop Recommendation Dataset via a public mirror. 22 crops, seven features, and a held-out test set. Model selection uses validation macro-F1.</p><a href="https://www.kaggle.com/datasets/atharvaingle/crop-recommendation-dataset" target="_blank" rel="noopener noreferrer">Explore the original dataset <span class="arrow-icon" aria-hidden="true"></span></a></div><div id="model-metrics" class="metrics-grid" aria-live="polite"><p>Loading training results…</p></div></section>
+  <footer><a class="brand" href="/">terra.</a><p>Built for a more thoughtful growing season.</p><span>HACKATHON PROTOTYPE · NOT FIELD-VALIDATED</span></footer>
+</main>
+</body>
+</html>
