@@ -54,7 +54,22 @@ On your own computer, substitute your project directory and open
 `.venv\Scripts\python.exe`. Set `PORT` to change the server port. Flask's included
 server is for development; use a production WSGI server before public deployment.
 
-## Demo
+## Deploy on Render
+
+Create a Python Web Service connected to this repository's `main` branch.
+Use these exact settings:
+
+- **Build command:** `python -m pip install -r requirements.lock.txt`
+- **Start command:** `python -m gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120`
+- **Environment:** `PYTHON_VERSION=3.12.10`; optionally add `DATA_GOV_API_KEY` securely.
+
+Gunicorn is included as a Linux/macOS dependency and omitted on Windows, where
+`RUN_APP.bat` starts the local development server. A `gunicorn: command not found`
+error means the production server was not installed in the runtime environment;
+update the build/start commands above and redeploy the latest commit.
+The trained models are included, so deployment does not require retraining.
+
+## Demo walkthrough
 
 Click **Load rice demo**, then **Find my crops**. Both models should recommend
 rice for N=90, P=42, K=43, temperature=20.9°C, humidity=82%, pH=6.5,
