@@ -198,7 +198,7 @@ async function requestPrices(mode, offset=0) {
       response = await fetch(`/api/market-prices?${query}`);
     }
     const data = await response.json();
-    if(!response.ok) throw new Error(data.error || 'Unable to load price reports.');
+    if(!response.ok) throw new Error(`${data.error || 'Unable to load price reports.'}${data.error_code ? ` [${data.error_code}]` : ''}`);
     priceFilters = filters; renderPriceReports(data);
   } catch(failure) {
     priceError.textContent = failure.message; priceError.hidden = false;

@@ -66,7 +66,7 @@ def health():
 
 @app.get("/api/market-status")
 def market_status():
-    return jsonify(api_key_configured=bool(os.environ.get("DATA_GOV_API_KEY")),
+    return jsonify(api_key_configured=bool(os.environ.get("DATA_GOV_API_KEY", "").strip()),
                    commodities=market_service.COMMODITIES, source="Agmarknet via data.gov.in",
                    source_url=market_service.SOURCE_URL, portal_url=market_service.PORTAL_URL,
                    freshness_limit_days=market_service.STALE_DAYS)
@@ -79,7 +79,8 @@ def market_prices():
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
     except market_service.MarketError as exc:
-        return jsonify(error=str(exc)), exc.status
+        app.logger.warning("Market lookup failed: code=%s status=%s", exc.code, exc.status)
+        return jsonify(error=str(exc), error_code=exc.code), exc.status
 
 
 @app.post("/api/market-import")

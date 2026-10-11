@@ -105,6 +105,15 @@ reported explicitly. Live upstream connectivity was not validated during develop
 the API returned an upstream 503 and no key was configured. Tests mock the API;
 no test fixture is shipped as real market data.
 
+For failures, the UI shows a safe diagnostic code and Render logs include
+`Market lookup failed: code=... status=...`. `API_KEY_MISSING` means the secret is
+absent; `UPSTREAM_HTTP_401/403` means authorization or host access was denied;
+`DNS_ERROR`, `UPSTREAM_TIMEOUT`, `CONNECTION_REFUSED`, and `CONNECTION_RESET`
+identify network failures. `TLS_CERTIFICATE_ERROR` requires investigation of
+certificate trust, never disabling verification. Upstream HTTP 5xx codes identify
+portal/service failures. Exception text, credential-bearing request URLs, and API
+key values are never logged. A 503 access-log entry alone cannot identify the cause.
+
 Select **Use price** on a report to fill its modal price into the matching crop row.
 Agmarknet's modal price is a representative reported price, not guaranteed revenue.
 The API's INR/quintal values are divided by 100 to get INR/kg. Original min/max/modal

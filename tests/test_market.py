@@ -2,6 +2,8 @@
 from datetime import timedelta
 import io
 import json
+import socket
+import ssl
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
 import pytest
@@ -195,3 +197,19 @@ def test_agmarknet_portal_column_names_and_state_specific_export(client):
     assert quote['price_per_kg']==24.5
     assert quote['state']=='Maharashtra' and quote['state_from_export_filter']
     assert any('CSV omits State' in warning for warning in response.json['warnings'])
+
+
+@pytest.mark.parametrize('reason,code',[(TimeoutError(),'UPSTREAM_TIMEOUT'),
+    (socket.gaierror(),'DNS_ERROR'),(ssl.SSLCertVerificationError(),'TLS_CERTIFICATE_ERROR'),
+    (ssl.SSLError(),'TLS_CONNECTION_ERROR'),(ConnectionRefusedError(),'CONNECTION_REFUSED'),
+    (ConnectionResetError(),'CONNECTION_RESET'),('test-api-key','NETWORK_ERROR')])
+def test_safe_network_diagnostics(client,monkeypatch,caplog,reason,code):
+    monkeypatch.setenv('DATA_GOV_API_KEY','test-api-key')
+    class Opener:
+        def open(self,*args,**kwargs):
+            raise URLError(reason)
+    monkeypatch.setattr(market,'build_opener',lambda *args: Opener())
+    response=client.get('/api/market-prices',query_string=FILTERS)
+    assert response.status_code==503 and response.json['error_code']==code
+    assert code in caplog.text
+    assert 'test-api-key' not in caplog.text + response.get_data(as_text=True)

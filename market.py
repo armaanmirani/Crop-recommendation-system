@@ -6,6 +6,8 @@ import json
 import math
 import os
 import re
+import socket
+import ssl
 import secrets
 import threading
 import time
@@ -37,9 +39,28 @@ STALE_DAYS = 7
 
 
 class MarketError(Exception):
-    def __init__(self, message, status=502):
+    def __init__(self, message, status=502, code="UPSTREAM_RESPONSE_ERROR"):
         super().__init__(message)
         self.status = status
+        self.code = code
+
+
+def connection_error(exc):
+    """Classify failures without exposing exception text or credential-bearing URLs."""
+    reason = exc.reason if isinstance(exc, URLError) else exc
+    if isinstance(reason, ssl.SSLCertVerificationError):
+        return MarketError("TLS certificate verification failed when contacting data.gov.in. The server trust configuration needs investigation; do not disable verification.", 503, "TLS_CERTIFICATE_ERROR")
+    if isinstance(reason, ssl.SSLError):
+        return MarketError("The secure connection to data.gov.in failed. Try later; persistent failures need network/TLS investigation.", 503, "TLS_CONNECTION_ERROR")
+    if isinstance(reason, socket.gaierror):
+        return MarketError("The server could not resolve api.data.gov.in. This is a DNS/network failure; changing the API key will not fix it.", 503, "DNS_ERROR")
+    if isinstance(reason, TimeoutError):
+        return MarketError("data.gov.in did not respond within 15 seconds. Try again later or use a CSV export.", 503, "UPSTREAM_TIMEOUT")
+    if isinstance(reason, ConnectionRefusedError):
+        return MarketError("The connection to data.gov.in was refused. Check hosting-network access or try later.", 503, "CONNECTION_REFUSED")
+    if isinstance(reason, ConnectionResetError):
+        return MarketError("The connection to data.gov.in was reset. Try later or investigate hosting-network access.", 503, "CONNECTION_RESET")
+    return MarketError("Cannot reach data.gov.in. Check network access or import an official CSV export.", 503, "NETWORK_ERROR")
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -227,9 +248,9 @@ def fetch_prices(values):
         raise ValueError("Invalid page offset.") from None
     if not 0 <= offset <= 10000:
         raise ValueError("Narrow your filters; the maximum page offset is 10000.")
-    key = os.environ.get("DATA_GOV_API_KEY", "")
+    key = os.environ.get("DATA_GOV_API_KEY", "").strip()
     if not key:
-        raise MarketError("Live lookup needs a data.gov.in API key configured on the server. You can still import an official CSV export or enter a manual estimate.", 503)
+        raise MarketError("Live lookup needs a data.gov.in API key configured on the server. You can still import an official CSV export or enter a manual estimate.", 503, "API_KEY_MISSING")
     params = {"api-key": key, "format": "json", "limit": "100", "offset": str(offset)}
     for name in ("state", "district", "market", "commodity"):
         if selected[name]:
@@ -245,12 +266,12 @@ def fetch_prices(values):
         payload = json.loads(raw)
     except HTTPError as exc:
         if exc.code in (401, 403):
-            raise MarketError("The market service denied access. Check the configured API key and network access.", 503) from None
+            raise MarketError("data.gov.in returned HTTP " + str(exc.code) + ". Check API authorization and whether the portal permits access from this host.", 503, "UPSTREAM_HTTP_" + str(exc.code)) from None
         if exc.code == 429:
-            raise MarketError("The market service rate limit was reached. Try again later.", 429) from None
-        raise MarketError("The market service is unavailable. Try later or import an official CSV export.") from None
-    except (URLError, TimeoutError, OSError):
-        raise MarketError("Cannot reach data.gov.in. Check network access or import an official CSV export.", 503) from None
+            raise MarketError("The market service rate limit was reached. Try again later.", 429, "UPSTREAM_RATE_LIMIT") from None
+        raise MarketError("data.gov.in returned HTTP " + str(exc.code) + ". Try later or import an official CSV export.", 502, "UPSTREAM_HTTP_" + str(exc.code)) from None
+    except (URLError, TimeoutError, OSError) as exc:
+        raise connection_error(exc) from None
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise MarketError("The market service returned an unreadable response.") from None
     if not isinstance(payload, dict) or not isinstance(payload.get("records"), list) or str(payload.get("status", "")).lower() in ("error", "failed", "fail"):
