@@ -11,20 +11,27 @@ expected yields, and cultivation costs.
 ### Windows: download and double-click
 
 Download this repository using **Code → Download ZIP** on GitHub and extract it.
-With Python 3.12 (64-bit) installed, double-click **`RUN_APP.bat`** inside the
-extracted folder. It creates a virtual environment, installs dependencies, and
+With Python 3.12 for Windows x64 installed, double-click **`RUN_APP.bat`** inside the
+extracted folder. It explicitly selects Python 3.12, creates a dedicated
+`.venv-windows` environment, installs prebuilt dependencies, and
 opens the app in your browser once the server is ready. Keep the server window open.
 The trained models are included; you do not need to train them again.
 
 If you prefer Command Prompt, open it in the extracted folder and run:
 
 ```bat
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.lock.txt
-.venv\Scripts\python.exe run_local.py
+py -3.12 -m venv .venv-windows
+.venv-windows\Scripts\python.exe -m pip install --upgrade pip
+.venv-windows\Scripts\python.exe -m pip install --only-binary=:all: -r requirements.lock.txt
+.venv-windows\Scripts\python.exe run_local.py
 ```
 
 Then open `http://localhost:5000` if the browser does not open automatically.
+
+If pandas reports a Meson / `vswhere.exe` metadata error, pip is trying to compile
+it instead of using a wheel. Install [Python 3.12.10, Windows installer (64-bit)](https://www.python.org/downloads/release/python-31210/)
+and use the commands above. Your other Python versions and the old `.venv` can stay;
+the launcher uses a separate environment. You do not need Visual Studio to run Terra.
 
 ### Linux / cloud development
 
