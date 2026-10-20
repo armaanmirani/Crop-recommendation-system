@@ -45,7 +45,7 @@ def test_malformed_and_missing_fields(client):
     assert client.post("/api/recommend", json=[]).status_code == 400
 
 def test_out_of_distribution_warning(client):
-    result = client.post("/api/recommend", json={**SAMPLE, "temperature": 55}).json
+    result = client.post("/api/recommend", json={**SAMPLE, "temperature": 48}).json
     assert any("temperature is outside" in warning for warning in result["warnings"])
 
 def test_profit_formula(client):
