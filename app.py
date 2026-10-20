@@ -13,8 +13,9 @@ ROOT = Path(__file__).resolve().parent
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 2_000_000
 BUNDLE = None
-LIMITS = {"N": (0, 300), "P": (0, 300), "K": (0, 300), "temperature": (-10, 60),
-          "humidity": (0, 100), "ph": (0, 14), "rainfall": (0, 5000)}
+# Slightly wider than the training data so impossible inputs (all zeros, extremes) are rejected.
+LIMITS = {"N": (0, 200), "P": (0, 200), "K": (0, 250), "temperature": (0, 50),
+          "humidity": (5, 100), "ph": (3, 10), "rainfall": (10, 500)}
 # Qualitative demo categories, not learned water-demand measurements.
 WATER = {
     "rice": "high", "jute": "high", "banana": "high", "coconut": "high",
@@ -36,6 +37,8 @@ def bundle():
         BUNDLE = joblib.load(path)  # Only load this project's locally generated artifact.
     return BUNDLE
 
+
+bundle()  # load models once at startup so the first visitor is not slowed down
 
 def number(value, name, minimum, maximum):
     if isinstance(value, bool):
@@ -174,6 +177,7 @@ def recommend():
         warnings.append("The two models disagree on the leading crop. Review the alternatives and local growing conditions.")
     return jsonify(recommendations=rows, comparison=comparison, model=model_name,
                    market_ranking_applied=bool(effective_weight and spread), warnings=warnings,
+                   low_confidence=best < .5,
                    inputs=values, area_hectares=area)
 
 
