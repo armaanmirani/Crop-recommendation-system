@@ -1,6 +1,6 @@
 # Terra · Crop recommendation for sustainable agriculture
 
-A responsive hackathon app that helps farmers explore crops using soil and climate
+A responsive  app that helps farmers explore crops using soil and climate
 measurements. Trains **Random Forest and XGBoost** on the Crop Recommendation
 Dataset associated with Kaggle, compares both models, and optionally ranks suitable
 crops using Agmarknet mandi reports (via data.gov.in or official CSV exports),
